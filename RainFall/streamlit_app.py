@@ -14,7 +14,6 @@ from app.pipeline import (
     load_and_process,
     summary_table,
     dot_product_corr,
-    feature_plot,
     split_heatmap
 )
 from app.config import FEATURES
@@ -39,12 +38,6 @@ with st.expander("📊 Rainfall Distribution"):
 with st.expander("🧾 Summary Statistics by Rainfall"):
     summary = summary_table(df)
     st.dataframe(summary)
-# Section: Feature Trends
-with st.expander("📈 Daily Feature Trends"):
-    # Plot feature line plots
-    figs = feature_plot(df)
-    for fig in figs:
-        st.pyplot(fig)
 
 # Section: Correlation Heatmap
 with st.expander("📎 Dot Product Correlation"):

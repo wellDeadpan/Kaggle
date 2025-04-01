@@ -3,61 +3,70 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import xgboost as xgb
-from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
-from sklearn.metrics import roc_auc_score, roc_curve
+import lightgbm as lgb
+from sklearn.linear_model import LogisticRegression, ElasticNet
+from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold, GridSearchCV
+from sklearn.metrics import roc_auc_score, roc_curve, RocCurveDisplay
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from sklearn.pipeline import Pipeline
 from pipeline import load_and_process
 from config import FEATURES
 
 
 
-def prepare_model_data(n_lags=5):
+def prepare_model_data(flnm, n_lags=5):
     # Step 1: Load processed data with lag features and 'month'
-    df = load_and_process(n_lags=n_lags)
+    df = load_and_process(flnm, n_lags=n_lags)
+    df.dropna(inplace=True)
     # Step 2: Drop target columns from X
     df = df.copy()
     # Ensure 'month' is retained for one-hot encoding
-    keep_cols = ['Month'] + [col for col in df.columns if col.startswith(tuple(f"{f}_lag" for f in FEATURES))] + [col for col in df.columns if col.startswith(tuple(f"{f}_ma" for f in FEATURES))]
+    keep_cols = [col for col in df.columns if col.startswith(tuple(f"{f}_lag" for f in FEATURES))] + [col for col in df.columns if col.startswith(tuple(f"{f}_ma" for f in FEATURES))]
     X = df[keep_cols]
     # Step 3: One-hot encode categorical columns (like 'month')
-    categorical_cols = ['Month']
-    X_encoded = pd.get_dummies(X, columns=categorical_cols, drop_first=True)
-    y = df['rain_flag']
-    return X_encoded, y
+    y = df['rainfall']
+    return X, y
 
-X, y = prepare_model_data(n_lags=5)
+def prepare_test_data(flnm, n_lags=5):
+    # Step 1: Load processed data with lag features and 'month'
+    df = load_and_process(flnm, n_lags=n_lags)
+    # Step 2: Drop target columns from X
+    df = df.copy()
+    # Ensure 'month' is retained for one-hot encoding
+    idlist = df['id']
+    keep_cols = [col for col in df.columns if col.startswith(tuple(f"{f}_lag" for f in FEATURES))] + [col for col in df.columns if col.startswith(tuple(f"{f}_ma" for f in FEATURES))]
+    X = df[keep_cols]
+    # Step 3: One-hot encode categorical columns (like 'month')
+    return X, idlist
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, test_size=0.2, random_state=42)
-
-sample_weights = y_train.map({0: 1, 1: 2})
-model = xgb.XGBClassifier(eval_metric='logloss', max_depth=3, colsample_bytree=0.9, subsample=0.9)
-model.fit(X_train, y_train, sample_weight=sample_weights)
+#model = xgb.XGBClassifier(eval_metric='logloss', max_depth=5, colsample_bytree=0.8, subsample=0.8)
+#model.fit(X_train, y_train)
 
 # Predict probabilities
-y_proba = model.predict_proba(X_test)[:, 1]
-y_true = y_test.reset_index(drop=True)
+#y_proba = model.predict_proba(X_test)[:, 1]
+#y_true = y_test.reset_index(drop=True)
 
 # Create sorted DataFrame
-results = pd.DataFrame({'y_true': y_true, 'y_proba': y_proba})
-results_sorted = results.sort_values(by='y_proba', ascending=False).reset_index(drop=True)
+#results = pd.DataFrame({'y_true': y_true, 'y_proba': y_proba})
+#results_sorted = results.sort_values(by='y_proba', ascending=False).reset_index(drop=True)
 
 # Plot
 plt.figure(figsize=(12, 3))
-plt.plot(results_sorted['y_true'].values, marker='o', linestyle='None')
+#plt.plot(results_sorted['y_true'].values, marker='o', linestyle='None')
 plt.title("Rainy (1) vs Non-Rainy (0) Days Sorted by Predicted Probability")
 plt.xlabel("Sorted Days")
 plt.ylabel("True Rainfall Label")
 plt.show()
 
 # Compute AUROC
-auc_score = roc_auc_score(y_test, y_proba)
-print(f"AUROC Score: {auc_score:.3f}")
+#auc_score = roc_auc_score(y_test, y_proba)
+#print(f"AUROC Score: {auc_score:.3f}")
 
-fpr, tpr, _ = roc_curve(y_test, y_proba)
+#fpr, tpr, _ = roc_curve(y_test, y_proba)
 
 plt.figure(figsize=(6, 5))
-plt.plot(fpr, tpr, label=f"AUC = {auc_score:.3f}")
+#plt.plot(fpr, tpr, label=f"AUC = {auc_score:.3f}")
 plt.plot([0, 1], [0, 1], '--', color='gray')
 plt.xlabel("False Positive Rate")
 plt.ylabel("True Positive Rate")
@@ -315,10 +324,105 @@ def run_mda_pruning(X, y, mda_df, model_func=None, min_features=5, cv=5):
     import xgboost as xgb
 
     if model_func is None:
-        model_func = lambda: xgb.XGBClassifier(eval_metric="logloss", max_depth=4, colsample_bytree=0.8, subsample=0.9)
+        model_func = lambda: xgb.XGBClassifier(eval_metric="logloss", max_depth=5, colsample_bytree=0.8, subsample=0.8)
 
     history_df = prune_and_evaluate_mda_cv(X, y, mda_df, model_func=model_func, min_features=min_features, cv=cv)
     return history_df
+
+def xgb_grid_search(X, y):
+    param_grid = {
+        'max_depth': [3, 4, 5],
+        'learning_rate': [0.05, 0.1],
+        'subsample': [0.8, 0.9],
+        'colsample_bytree': [0.8, 0.9]
+    }
+
+    model = xgb.XGBClassifier(eval_metric='logloss',random_state=42)
+    grid = GridSearchCV(model, param_grid, scoring='roc_auc', cv=3, n_jobs=-1, verbose=1)
+    grid.fit(X, y)
+
+    return grid.best_estimator_, grid.best_params_, grid.best_score_
+
+def lgbm_grid_search(X, y):
+    param_grid = {
+        'max_depth': [3, 4, 5],
+        'learning_rate': [0.05, 0.1],
+        'subsample': [0.8, 0.9],
+        'colsample_bytree': [0.8, 0.9]
+    }
+
+    model = lgb.LGBMClassifier()
+    grid = GridSearchCV(model, param_grid, scoring='roc_auc', cv=3, n_jobs=-1, verbose=1)
+    grid.fit(X, y)
+
+    return grid.best_estimator_, grid.best_params_, grid.best_score_
+
+def elasticnet_grid_search(X, y):
+    pipe = Pipeline([
+        ('scaler', StandardScaler()),
+        ('clf', LogisticRegression(penalty='elasticnet', solver='saga', max_iter=5000))
+    ])
+
+    param_grid = {
+        'clf__l1_ratio': [0.2, 0.5, 0.8],
+        'clf__C': [0.01, 0.1, 1, 10]
+    }
+
+    grid = GridSearchCV(pipe, param_grid, scoring='roc_auc', cv=3, verbose=1, n_jobs=-1)
+    grid.fit(X, y)
+
+    return grid.best_estimator_, grid.best_params_, grid.best_score_
+
+
+def fit_and_evaluate_model(model_type, X_train, y_train, X_val, y_val, best_params=None, best_estimator=None):
+    """
+    Fit a model using best params and return trained model and validation AUROC.
+
+    Parameters:
+        model_type (str): 'xgb', 'lgbm', or 'enet'
+        X_train, y_train: training set
+        X_val, y_val: validation set
+        best_params (dict): tuned hyperparameters
+
+    Returns:
+        model: fitted model
+        val_auc: AUROC on validation set
+        val_pred: predicted probabilities
+    """
+
+    if model_type == 'xgb':
+        model = xgb.XGBClassifier(eval_metric='logloss', **(best_params or {}))
+
+    elif model_type == 'lgbm':
+        model = lgb.LGBMClassifier(**(best_params or {}))
+
+    elif model_type == 'enet':
+        # Filter only ElasticNet parameters, stripping prefixes if necessary
+        model = best_estimator
+
+    else:
+        raise ValueError("Unsupported model_type. Use 'xgb', 'lgbm', or 'enet'.")
+
+    # Fit the model
+    model.fit(X_train, y_train)
+
+    # Predict probabilities (if supported)
+    if hasattr(model, "predict_proba"):
+        val_pred = model.predict_proba(X_val)[:, 1]
+    else:
+        val_pred = model.predict(X_val)
+
+    val_auc = roc_auc_score(y_val, val_pred)
+
+    # Plot ROC
+    fig, ax = plt.subplots()
+    RocCurveDisplay.from_predictions(y_val, val_pred, name=model_type.upper(), ax=ax)
+    ax.set_title(f"ROC Curve - {model_type.upper()}")
+    ax.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+    return model, val_auc, val_pred, fig
 
 
 def xgb_oof(X, y, X_test=None, n_splits=5, best_params=None, random_state=42):
@@ -331,6 +435,7 @@ def xgb_oof(X, y, X_test=None, n_splits=5, best_params=None, random_state=42):
         models: list of trained models per fold
     """
     oof_preds = np.zeros(len(X))
+    oof_proba = np.zeros(len(X))
     test_preds = np.zeros(len(X_test)) if X_test is not None else None
     models = []
     auc_scores = []
@@ -343,14 +448,13 @@ def xgb_oof(X, y, X_test=None, n_splits=5, best_params=None, random_state=42):
         y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
 
         model = xgb.XGBClassifier(
-            use_label_encoder=False,
             eval_metric='logloss',
-            random_state=random_state + fold,
-            max_depth=4, colsample_bytree=0.8, subsample=0.9
+            random_state=random_state + fold, **(best_params or {})
         )
         model.fit(X_train, y_train)
 
-        oof_preds[val_idx] = model.predict_proba(X_val)[:, 1]
+        oof_preds[val_idx] = model.predict(X_val)
+        oof_proba[val_idx] = model.predict_proba(X_val)[:, 1]
         auc = roc_auc_score(y_val, oof_preds[val_idx])
         auc_scores.append(auc)
         print(f"✅ Fold {fold + 1} AUC: {auc:.4f}")
@@ -361,8 +465,62 @@ def xgb_oof(X, y, X_test=None, n_splits=5, best_params=None, random_state=42):
         models.append(model)
 
     print(f"\n📊 Overall OOF AUC: {roc_auc_score(y, oof_preds):.4f}")
-    return oof_preds, test_preds, models, auc_scores
+    return oof_preds, oof_proba, test_preds, models, auc_scores
 
+
+def lgbm_oof(X, y, X_test, n_splits=5, random_state=42, best_params=None):
+    oof_preds = np.zeros(len(X))
+    oof_proba = np.zeros(len(X))
+    test_preds = np.zeros(len(X_test)) if X_test is not None else None
+    auc_scores = []
+
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+
+    for fold, (train_idx, val_idx) in enumerate(skf.split(X, y)):
+        print(f"🔁 LGBM Fold {fold + 1}")
+        X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
+        y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
+
+        model = lgb.LGBMClassifier(**(best_params or {}))
+        model.fit(X_train, y_train)
+
+        oof_preds[val_idx] = model.predict(X_val)
+        oof_proba[val_idx] = model.predict_proba(X_val)[:, 1]
+        auc = roc_auc_score(y_val, oof_preds[val_idx])
+        auc_scores.append(auc)
+        if X_test is not None:
+            test_preds += model.predict_proba(X_test)[:, 1] / n_splits
+
+    print(f"✅ LGBM OOF AUROC: {roc_auc_score(y, oof_preds):.4f}")
+    return oof_preds, oof_proba, test_preds, auc_scores
+
+
+def elasticnet_oof(X, y, X_test, best_estimator, n_splits=5, random_state=42):
+    oof_preds = np.zeros(len(X))
+    oof_proba = np.zeros(len(X))
+    test_preds = np.zeros(len(X_test)) if X_test is not None else None
+    auc_scores = []
+
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+
+    for fold, (train_idx, val_idx) in enumerate(skf.split(X, y)):
+        print(f"🔁 ElasticNet Fold {fold+1}")
+        X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
+        y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
+
+        model = best_estimator
+        model.fit(X_train, y_train)
+
+        oof_preds[val_idx] = model.predict(X_val)
+        oof_proba[val_idx] = model.predict_proba(X_val)[:, 1]
+        auc = roc_auc_score(y_val, oof_preds[val_idx])
+        auc_scores.append(auc)
+
+        if X_test is not None:
+            test_preds += model.predict_proba(X_test)[:, 1] / n_splits
+
+    print(f"✅ ElasticNet OOF AUROC: {roc_auc_score(y, oof_preds):.4f}")
+    return oof_preds, oof_proba, test_preds, auc_scores
 
 def plot_fold_auc(auc_scores):
     folds = list(range(1, len(auc_scores) + 1))
@@ -382,3 +540,64 @@ def plot_fold_auc(auc_scores):
     ax.legend()
     fig.tight_layout()
     return fig
+
+def optimize_ensemble_weights(y_true, preds_list, step=0.05):
+    best_auc = 0
+    best_weights = (0.5, 0.5)
+
+    for w1 in np.arange(0, 1 + step, step):
+        w2 = 1 - w1
+        blend = w1 * preds_list[0] + w2 * preds_list[1]
+        auc = roc_auc_score(y_true, blend)
+        if auc > best_auc:
+            best_auc = auc
+            best_weights = (w1, w2)
+
+    return best_weights, best_auc
+
+
+def stack_models(oof_preds_list, y_true, test_preds_list, meta_model=None):
+    """
+    Train a meta-model using OOF predictions and make stacked test predictions.
+
+    Parameters:
+        oof_preds_list (list of np.array): List of OOF prediction arrays from base models (shape: [n_samples]).
+        y_true (array-like): Ground truth training labels.
+        test_preds_list (list of np.array): List of test prediction arrays from base models (same length as test set).
+        meta_model (sklearn estimator): Meta-model to use (default: LogisticRegression)
+
+    Returns:
+        meta_model (fitted): Trained meta-model
+        oof_stack_preds (np.array): Stacked predictions on training set
+        test_stack_preds (np.array): Stacked predictions on test set
+        stack_auc (float): AUROC on OOF (training) set
+    """
+    if meta_model is None:
+        meta_model = LogisticRegression(max_iter=5000)
+
+    # Stack OOF predictions for training meta-model
+    meta_X = np.vstack(oof_preds_list).T  # shape: (n_samples, n_models)
+    meta_model.fit(meta_X, y_true)
+
+    # Training (OOF) prediction
+    oof_stack_preds = meta_model.predict_proba(meta_X)[:, 1]
+    stack_auc = roc_auc_score(y_true, oof_stack_preds)
+
+    # Stack test predictions
+    meta_X_test = np.vstack(test_preds_list).T  # shape: (n_test_samples, n_models)
+    test_stack_preds = meta_model.predict_proba(meta_X_test)[:, 1]
+
+    return meta_model, oof_stack_preds, test_stack_preds, stack_auc
+
+
+# Create the ROC plot
+def plot_roc_curves(y, xgb_oof, enet_oof):
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    RocCurveDisplay.from_predictions(y, xgb_oof, name="XGB", ax=ax)
+    RocCurveDisplay.from_predictions(y, enet_oof, name="ElasticNet", ax=ax)
+
+    ax.set_title("ROC Curves")
+    ax.grid(True)
+    return fig
+
