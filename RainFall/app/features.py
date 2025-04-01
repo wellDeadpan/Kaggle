@@ -13,6 +13,7 @@ def generate_features(df, n_lags=3):
         df[f'{feature}_ma{n_lags}'] = df[feature].rolling(n_lags).mean()
     return df.dropna()
 
+
 def generate_all_interactions(df, features):
     """
     Automatically create all pairwise interaction terms for given features.

@@ -22,7 +22,6 @@ from app.config import FEATURES
 st.set_page_config(page_title="Rainfall Analysis Dashboard", layout="wide")
 st.title("🌧️ Rainfall Analysis Dashboard")
 
-
 # Sidebar
 st.sidebar.header("User Inputs")
 n_lags = st.sidebar.slider("Number of Lag Days", min_value=1, max_value=10, value=3)

@@ -88,7 +88,6 @@ def pca(X_test):
 
     return X_pca, pca
 
-
 def add_pca_loadings(ax, pca, feature_names, scale=10, top_n=None, color='gray', alpha=0.6):
     """
     Draw loading vectors (PCA components) on the PCA scatterplot (biplot).

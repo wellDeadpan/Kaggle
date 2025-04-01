@@ -23,7 +23,6 @@ from app.model import  (prepare_model_data, prepare_test_data, pca_error, pca_lo
 from app.features import compute_mda_importance, plot_mda_importance
 from app.features import generate_all_interactions
 
-
 # --- Streamlit App ---
 st.set_page_config(page_title="Rainfall Prediction Model", layout="wide")
 st.title("🌧️ Rainfall Prediction with XGBoost")
