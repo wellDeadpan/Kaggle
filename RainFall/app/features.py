@@ -5,13 +5,16 @@ import seaborn as sns
 from sklearn.preprocessing import PolynomialFeatures
 from itertools import combinations
 
-def generate_features(df, n_lags=3):
+def generate_features(df, features, n_lags=3):
     df = df.copy()
-    for feature in ['pressure', 'maxtemp', ...]:
+    for feature in features:
         for lag in range(1, n_lags + 1):
             df[f'{feature}_lag{lag}'] = df[feature].shift(lag)
-        df[f'{feature}_ma{n_lags}'] = df[feature].rolling(n_lags).mean()
-    return df.dropna()
+
+            # Generate moving averages for 3, 4, 5 days
+        for window in [3, 4, 5]:
+            df[f'{feature}_ma{window}'] = df[feature].rolling(window).mean()
+    return df
 
 
 def generate_all_interactions(df, features):

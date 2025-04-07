@@ -10,10 +10,8 @@ import os
 # Add the app directory to sys.path
 sys.path.append(os.path.join(os.path.dirname(__file__), "app"))
 
-from app.pipeline import (
-    load_and_process,
+from app.eda_utils import (
     summary_table,
-    dot_product_corr,
     split_heatmap
 )
 from app.config import FEATURES
@@ -27,7 +25,8 @@ st.sidebar.header("User Inputs")
 n_lags = st.sidebar.slider("Number of Lag Days", min_value=1, max_value=10, value=3)
 
 # Data processing
-df = load_and_process(n_lags)
+flnm = 'F:\\GitHub\\Kaggle\\RainFall\\data\\train.csv'
+df = pd.read_csv(flnm)
 
 # Section: Rainfall Distribution
 with st.expander("📊 Rainfall Distribution"):
@@ -38,13 +37,6 @@ with st.expander("🧾 Summary Statistics by Rainfall"):
     summary = summary_table(df)
     st.dataframe(summary)
 
-# Section: Correlation Heatmap
-with st.expander("📎 Dot Product Correlation"):
-    st.write("Standardized correlation using dot product (same as Pearson on scaled data).")
-    corr = dot_product_corr(df[FEATURES].select_dtypes(include='number'))
-    fig, ax = plt.subplots(figsize=(10, 8))
-    sns.heatmap(pd.DataFrame(corr), cmap="coolwarm", ax=ax)
-    st.pyplot(fig)
 
 # Section: Heatmap Split by Rainfall
 with st.expander("🧊 Heatmap Split by Rain/No Rain"):

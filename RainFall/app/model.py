@@ -10,35 +10,16 @@ from sklearn.metrics import roc_auc_score, roc_curve, RocCurveDisplay
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
-from pipeline import load_and_process
 from config import FEATURES
+import data_utils as dat
 
 
+flnm = 'F:\\GitHub\\Kaggle\\RainFall\\data\\train.csv'
+df = pd.read_csv(flnm)
 
-def prepare_model_data(flnm, n_lags=5):
-    # Step 1: Load processed data with lag features and 'month'
-    df = load_and_process(flnm, n_lags=n_lags)
-    df.dropna(inplace=True)
-    # Step 2: Drop target columns from X
-    df = df.copy()
-    # Ensure 'month' is retained for one-hot encoding
-    keep_cols = [col for col in df.columns if col.startswith(tuple(f"{f}_lag" for f in FEATURES))] + [col for col in df.columns if col.startswith(tuple(f"{f}_ma" for f in FEATURES))]
-    X = df[keep_cols]
-    # Step 3: One-hot encode categorical columns (like 'month')
-    y = df['rainfall']
-    return X, y
+X, y = dat.prepare_model_data(df)
 
-def prepare_test_data(flnm, n_lags=5):
-    # Step 1: Load processed data with lag features and 'month'
-    df = load_and_process(flnm, n_lags=n_lags)
-    # Step 2: Drop target columns from X
-    df = df.copy()
-    # Ensure 'month' is retained for one-hot encoding
-    idlist = df['id']
-    keep_cols = [col for col in df.columns if col.startswith(tuple(f"{f}_lag" for f in FEATURES))] + [col for col in df.columns if col.startswith(tuple(f"{f}_ma" for f in FEATURES))]
-    X = df[keep_cols]
-    # Step 3: One-hot encode categorical columns (like 'month')
-    return X, idlist
+
 
 #model = xgb.XGBClassifier(eval_metric='logloss', max_depth=5, colsample_bytree=0.8, subsample=0.8)
 #model.fit(X_train, y_train)
@@ -350,7 +331,7 @@ def lgbm_grid_search(X, y):
         'colsample_bytree': [0.8, 0.9]
     }
 
-    model = lgb.LGBMClassifier()
+    model = lgb.LGBMClassifier(min_gain_to_split=0.0,min_data_in_leaf=10,lambda_l1=0.0, lambda_l2=0.0)
     grid = GridSearchCV(model, param_grid, scoring='roc_auc', cv=3, n_jobs=-1, verbose=1)
     grid.fit(X, y)
 
