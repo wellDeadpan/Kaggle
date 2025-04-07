@@ -1,8 +1,6 @@
 # streamlit_app.py
 import streamlit as st
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
 
 import sys
 import os
@@ -10,11 +8,10 @@ import os
 # Add the app directory to sys.path
 sys.path.append(os.path.join(os.path.dirname(__file__), "app"))
 
-from app.eda_utils import (
+from RainFall.app.utils.eda_utils import (
     summary_table,
     split_heatmap
 )
-from app.config import FEATURES
 
 # Page setup
 st.set_page_config(page_title="Rainfall Analysis Dashboard", layout="wide")

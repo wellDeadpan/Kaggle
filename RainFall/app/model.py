@@ -4,15 +4,13 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import xgboost as xgb
 import lightgbm as lgb
-from sklearn.linear_model import LogisticRegression, ElasticNet
-from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold, GridSearchCV
-from sklearn.metrics import roc_auc_score, roc_curve, RocCurveDisplay
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score, StratifiedKFold, GridSearchCV
+from sklearn.metrics import roc_auc_score, RocCurveDisplay
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
-from config import FEATURES
-import data_utils as dat
-
+from RainFall.app.utils import data_utils as dat
 
 flnm = 'F:\\GitHub\\Kaggle\\RainFall\\data\\train.csv'
 df = pd.read_csv(flnm)
