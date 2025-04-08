@@ -6,6 +6,8 @@ from fastapi import UploadFile
 from io import BytesIO
 import pandas as pd
 from datetime import datetime
+from ..utils import data_utils as dat  # Relative import based on your structure
+
 
 
 
@@ -35,6 +37,8 @@ class DataHandler:
         try:
             content = await file.read()
             df = pd.read_csv(BytesIO(content))
+            df, _ = dat.prepare_test_data(df)
+            df = dat.create_physics_features(df)
             df = self.clean_and_validate(df)
             self.temp_store["latest_df"] = df
             return df
@@ -122,6 +126,7 @@ class DataHandler:
         # - Handle missing values
         # - Validate data types
         # - Check for required columns
+        df = dat.select_features(df)
         return df
 
     def cleanup_old_files(self, max_age_days: int = 7):

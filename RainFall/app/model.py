@@ -307,49 +307,7 @@ def run_mda_pruning(X, y, mda_df, model_func=None, min_features=5, cv=5):
     history_df = prune_and_evaluate_mda_cv(X, y, mda_df, model_func=model_func, min_features=min_features, cv=cv)
     return history_df
 
-def xgb_grid_search(X, y):
-    param_grid = {
-        'max_depth': [3, 4, 5],
-        'learning_rate': [0.05, 0.1],
-        'subsample': [0.8, 0.9],
-        'colsample_bytree': [0.8, 0.9]
-    }
 
-    model = xgb.XGBClassifier(eval_metric='logloss',random_state=42)
-    grid = GridSearchCV(model, param_grid, scoring='roc_auc', cv=3, n_jobs=-1, verbose=1)
-    grid.fit(X, y)
-
-    return grid.best_estimator_, grid.best_params_, grid.best_score_
-
-def lgbm_grid_search(X, y):
-    param_grid = {
-        'max_depth': [3, 4, 5],
-        'learning_rate': [0.05, 0.1],
-        'subsample': [0.8, 0.9],
-        'colsample_bytree': [0.8, 0.9]
-    }
-
-    model = lgb.LGBMClassifier(min_gain_to_split=0.0,min_data_in_leaf=10,lambda_l1=0.0, lambda_l2=0.0)
-    grid = GridSearchCV(model, param_grid, scoring='roc_auc', cv=3, n_jobs=-1, verbose=1)
-    grid.fit(X, y)
-
-    return grid.best_estimator_, grid.best_params_, grid.best_score_
-
-def elasticnet_grid_search(X, y):
-    pipe = Pipeline([
-        ('scaler', StandardScaler()),
-        ('clf', LogisticRegression(penalty='elasticnet', solver='saga', max_iter=5000))
-    ])
-
-    param_grid = {
-        'clf__l1_ratio': [0.2, 0.5, 0.8],
-        'clf__C': [0.01, 0.1, 1, 10]
-    }
-
-    grid = GridSearchCV(pipe, param_grid, scoring='roc_auc', cv=3, verbose=1, n_jobs=-1)
-    grid.fit(X, y)
-
-    return grid.best_estimator_, grid.best_params_, grid.best_score_
 
 
 def fit_and_evaluate_model(model_type, X_train, y_train, X_val, y_val, best_params=None, best_estimator=None):

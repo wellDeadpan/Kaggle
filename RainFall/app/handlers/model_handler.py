@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 class ModelHandler:
-    def __init__(self, model_dir='models', active_version='v1.0'):
+    def __init__(self, model_dir='model', active_version='v1.0_04072025'):
         self.model_dir = Path(model_dir)
         self.active_version = active_version
         self.model = self.load_model(self.active_version)

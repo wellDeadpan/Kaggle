@@ -7,6 +7,8 @@ from sklearn.preprocessing import PolynomialFeatures
 from itertools import combinations
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from .. import config
+from ..config import FEATURES, FEATURES_Reduced
 
 
 async def read_input_data(file=None,
@@ -69,6 +71,18 @@ def intx_features(X):
     X_interact_df = pd.DataFrame(X_interact, columns=feature_names)
     return X_interact_df
 
+def create_physics_features(df):
+    df = df.copy()
+
+    df['sun_evap_effect'] = df['sunshine_ma3'] * df['humidity_ma3']
+    df['cloud_building'] = df['sunshine_ma3'] * df['cloud_ma3']
+    df['rain_chain'] = df['sunshine_ma3'] * df['humidity_ma3'] * df['cloud_ma3']
+
+    df['rain_party'] = -df['pressure_ma3'] * df['humidity_ma3'] * df['windspeed_ma3']
+    df['dry_day_score'] = df['pressure_ma3'] * (1 - df['humidity_ma3'])
+
+    return df
+
 def prepare_model_data(df, features, n_lags=5):
     df = df.copy()
     df = generate_features(df, features, n_lags)
@@ -80,11 +94,12 @@ def prepare_model_data(df, features, n_lags=5):
     y = df['rainfall']
     return X, y
 
-def prepare_test_data(df, features, n_lags=5):
+def prepare_test_data(df, features=FEATURES, n_lags=5):
     # Step 1: Load processed data with lag features and 'month'
     #df = load_and_process(flnm, n_lags=n_lags)
     # Step 2: Drop target columns from X
     df = df.copy()
+    df = generate_features(df, features, n_lags)
     # Ensure 'month' is retained for one-hot encoding
     idlist = df['id']
     keep_cols = [col for col in df.columns if col.startswith(tuple(f"{f}_lag" for f in features))] + [col for col in df.columns if col.startswith(tuple(f"{f}_ma" for f in features))]
@@ -92,3 +107,15 @@ def prepare_test_data(df, features, n_lags=5):
     # Step 3: One-hot encode categorical columns (like 'month')
     return X, idlist
 
+def select_features(df: pd.DataFrame, selected_features= FEATURES_Reduced) -> pd.DataFrame:
+    """
+    Filters the input DataFrame to keep only the selected features.
+
+    Args:
+        df (pd.DataFrame): The original DataFrame.
+        selected_features (list): List of feature names to keep.
+
+    Returns:
+        pd.DataFrame: A reduced DataFrame with only selected features.
+    """
+    return df[selected_features].copy()
